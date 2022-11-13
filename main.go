@@ -32,11 +32,6 @@ func main() {
 	api := slack.New(token, slack.OptionDebug(true), slack.OptionAppLevelToken(appToken))
 	client := socketmode.New(api, socketmode.OptionDebug(false))
 
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
 	// Create a context that can be used to cancel goroutine
 	ctx, cancel := context.WithCancel(context.Background())
 	// Make this cancel called properly in a real program , graceful shutdown etc
