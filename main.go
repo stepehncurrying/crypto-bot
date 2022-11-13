@@ -102,7 +102,8 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	}
 	// Check if the user said Hello to the bot
 	text := strings.ToLower(event.Text)
-
+	// Create a slice with the arguments
+	text_splitted := strings.Split(text, " ")
 	// Create the attachment and assigned based on the message
 	attachment := slack.Attachment{}
 	// Add Some default context like user who mentioned the bot
@@ -120,12 +121,18 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		attachment.Text = fmt.Sprintf("Hello %s", user.Name)
 		attachment.Pretext = "Greetings"
 		attachment.Color = "#4af030"
-	} else if strings.Contains(text, "btc") {
-		// Get BTC value
-		btc := getBtcValue()
-		attachment.Text = fmt.Sprintf("1 BTC equals to %s USD", btc)
-		attachment.Pretext = "As you wanted"
-		attachment.Color = "#ff8000"
+	} else if strings.Contains(strings.ToLower((text_splitted[1])), "lastprice") {
+		crypto := strings.ToUpper(text_splitted[2])
+		price := getCryptoValue(crypto)
+		if price != "" {
+			attachment.Text = fmt.Sprintf("1 "+crypto+" equals to %s USD", price)
+			attachment.Pretext = "As you wanted"
+			attachment.Color = "#ff8000"
+		} else {
+			attachment.Text = fmt.Sprintf("The crypto id doesnt exist")
+			attachment.Pretext = "I'm sorry"
+			attachment.Color = "#ff0000"
+		}
 	} else {
 		// Send a message to the user
 		attachment.Text = fmt.Sprintf("How can I help you %s?", user.Name)
@@ -141,8 +148,8 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	return nil
 }
 
-func getBtcValue() string {
-	response, err := http.Get("https://cex.io/api/last_price/BTC/USD")
+func getCryptoValue() string {
+	response, err := http.Get("https://cex.io/api/last_price/" + cry + "/USD")
 
 	if err != nil {
 		fmt.Print(err.Error())
