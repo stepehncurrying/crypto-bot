@@ -1,0 +1,30 @@
+CRYPTOS:
+BTC
+ETH
+BNB
+DOT
+SOL
+UNI
+AVAX
+AXS
+PAXG
+
+commands:
+Hola
+	Greeting al usuario
+	Desplega un menú de los posibles comandos
+	
+Crypto
+	Muestra todas las cryptos sostenidas por el programa
+	
+Nombre de crypto
+	Desplega un menú de los posibles comandos
+	
+	
+Comandos crypto
+	"Price" -> muestra el precio actual de la crypto
+	"TopeInf x" -> Hace un evento que queda activo, avisa al channel cuando el precio de la moneda es inferior a x
+	"TopeSup x" -> Hace un evento que queda activo, avisa al channel cuando el precio de la moneda es inferior a x
+	"Variación últimos x mins"
+	
+	
