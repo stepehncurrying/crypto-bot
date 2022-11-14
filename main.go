@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/joho/godotenv"
-	"github.com/slack-go/slack"
-	"github.com/slack-go/slack/slackevents"
-	"github.com/slack-go/slack/socketmode"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
+	"github.com/slack-go/slack/socketmode"
 )
 
 func main() {
@@ -31,6 +32,8 @@ func main() {
 	//channelId := os.Getenv("SLACK_CHANNEL_ID")
 	api := slack.New(token, slack.OptionDebug(true), slack.OptionAppLevelToken(appToken))
 	client := socketmode.New(api, socketmode.OptionDebug(false))
+
+	err = initMessage(api)
 
 	// Create a context that can be used to cancel goroutine
 	ctx, cancel := context.WithCancel(context.Background())
@@ -102,6 +105,8 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	}
 	// Check if the user said Hello to the bot
 	text := strings.ToLower(event.Text)
+	// Create a slice with the arguments
+	text_splitted := strings.Split(text, " ")
 
 	// Create the attachment and assigned based on the message
 	attachment := slack.Attachment{}
@@ -115,25 +120,77 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			Value: user.Name,
 		},
 	}
-	if strings.Contains(text, "hello") {
+
+	switch text_splitted[1] {
+
+	case "hello":
 		// Greet the user
 		attachment.Text = fmt.Sprintf("Hello %s", user.Name)
 		attachment.Pretext = "Greetings"
 		attachment.Color = "#4af030"
-	} else if strings.Contains(text, "btc") {
-		// Get BTC value
-		btc := getBtcValue()
-		attachment.Text = fmt.Sprintf("1 BTC equals to %s USD", btc)
-		attachment.Pretext = "As you wanted"
-		attachment.Color = "#ff8000"
-	} else {
+
+	case "price":
+		if len(text_splitted) < 3 {
+			attachment.Text = fmt.Sprintf("You didn't enter any crypto id")
+			attachment.Pretext = "I'm Sorry"
+			attachment.Color = "#ff0000"
+		} else {
+			crypto := strings.ToUpper(text_splitted[2])
+			price := getCryptoValue(crypto)
+			if price != "" {
+				attachment.Text = fmt.Sprintf("1 "+crypto+" equals to %s USD", price)
+				attachment.Pretext = "As you wanted"
+				attachment.Color = "#ff8000"
+			} else {
+				attachment.Text = fmt.Sprintf("That crypto id doesn't exist")
+				attachment.Pretext = "I'm Sorry"
+				attachment.Color = "#ff0000"
+			}
+		}
+
+	case "help":
+		// Gives a set of options to the user
+		attachment.Pretext = "Here is all I can do!"
+		attachment.Text = `Available commands just for you
+		- @CryptoBot hello -> Greet me!
+		- @CryptoBot cryptoList -> Lists many cryptos name to then investigate
+		- @CryptoBot price any_crypto_name -> Gets the current price of the crypto (if it exists)
+		- @CryptoBot setHigh any_crypto_name high_value -> Set a value so I can tell you when the crypto surpasses it
+		- @CryptoBot setLow any_crypto_name low_value-> Set a value so I can tell you when the crypto is lower than it
+		- @CryptoBot seePerformance any_crypto_name days -> See the performance in the crypto price in the last days
+		More to come!`
+		attachment.Color = "#0000ff"
+
+	case "cryptolist":
+		// Gives a list of crypto names
+		attachment.Pretext = "Here goes a list of cryptos you might be interested in"
+		attachment.Text = "BTC\nETH\nBla\n..."
+		attachment.Color = "#0000ff"
+
+	case "sethigh":
+		// Sets the high to then tell the user when the crypto value is higher
+		attachment.Pretext = "To be implemented"
+		attachment.Text = "Mock"
+		attachment.Color = "#0000ff"
+
+	case "setlow":
+		// Sets the high to then tell the user when the crypto value is lower
+		attachment.Pretext = "To be implemented"
+		attachment.Text = "Mock"
+		attachment.Color = "#0000ff"
+
+	case "seeperformance":
+		attachment.Pretext = "To be implemented"
+		attachment.Text = "Mock"
+		attachment.Color = "#0000ff"
+
+	default:
 		// Send a message to the user
-		attachment.Text = fmt.Sprintf("How can I help you %s?", user.Name)
-		attachment.Pretext = "How can I be of service"
+		attachment.Text = fmt.Sprintf("How can I help you %s? Type help after tagging me to know what I can do", user.Name)
+		attachment.Pretext = "That's not a true command!"
 		attachment.Color = "#3d3d3d"
 	}
-	// Send the message to the channel
-	// The Channel is available in the event message
+
 	_, _, err = api.PostMessage(event.Channel, slack.MsgOptionAttachments(attachment))
 	if err != nil {
 		return fmt.Errorf("failed to post message: %w", err)
@@ -141,8 +198,8 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	return nil
 }
 
-func getBtcValue() string {
-	response, err := http.Get("https://cex.io/api/last_price/BTC/USD")
+func getCryptoValue(cry string) string {
+	response, err := http.Get("https://cex.io/api/last_price/" + cry + "/USD")
 
 	if err != nil {
 		fmt.Print(err.Error())
@@ -165,4 +222,30 @@ type Response struct {
 	LastPrice string `json:"lprice"`
 	Currency1 string `json:"curr1"`
 	Currency2 string `json:"curr2"`
+}
+
+// Initial message when the bot starts running
+func initMessage(api *slack.Client) error {
+
+	err := errors.New("")
+
+	initAttachment := slack.Attachment{}
+	initAttachment.Fields = []slack.AttachmentField{
+		{
+			Title: "Date",
+			Value: time.Now().String(),
+		},
+	}
+	initAttachment.Text = fmt.Sprintf("Hi! I'm on! Type help after tagging me to know what I can do!")
+	initAttachment.Pretext = "Howdy!"
+	initAttachment.Color = "#4af030"
+
+	_, _, err = api.PostMessage(os.Getenv("SLACK_CHANNEL_ID"), slack.MsgOptionAttachments(initAttachment))
+
+	if err != nil {
+		log.Println("Error", err)
+		return err
+	}
+
+	return nil
 }
