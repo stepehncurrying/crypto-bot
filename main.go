@@ -122,16 +122,22 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		attachment.Pretext = "Greetings"
 		attachment.Color = "#4af030"
 	} else if strings.Contains(strings.ToLower((text_splitted[1])), "lastprice") {
-		crypto := strings.ToUpper(text_splitted[2])
-		price := getCryptoValue(crypto)
-		if price != "" {
-			attachment.Text = fmt.Sprintf("1 "+crypto+" equals to %s USD", price)
-			attachment.Pretext = "As you wanted"
-			attachment.Color = "#ff8000"
-		} else {
-			attachment.Text = fmt.Sprintf("The crypto id doesnt exist")
-			attachment.Pretext = "I'm sorry"
+		if len(text_splitted) < 3 {
+			attachment.Text = fmt.Sprintf("You didnt enter any crypto id")
+			attachment.Pretext = "I'm Sorry"
 			attachment.Color = "#ff0000"
+		} else {
+			crypto := strings.ToUpper(text_splitted[2])
+			price := getCryptoValue(crypto)
+			if price != "" {
+				attachment.Text = fmt.Sprintf("1 "+crypto+" equals to %s USD", price)
+				attachment.Pretext = "As you wanted"
+				attachment.Color = "#ff8000"
+			} else {
+				attachment.Text = fmt.Sprintf("The crypto id doesnt exist")
+				attachment.Pretext = "I'm Sorry"
+				attachment.Color = "#ff0000"
+			}
 		}
 	} else {
 		// Send a message to the user
