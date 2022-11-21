@@ -21,49 +21,28 @@ import (
 	"github.com/slack-go/slack/socketmode"
 )
 
-const NCRYPTOS = 4
 const FILE_NAME = "alarms.txt"
 
 type register struct {
 	user   string
 	date   string
-	crypto Cryptos
+	crypto string
 	price  float64
 	rule   Rules
 }
 
-type Cryptos int
-
-const (
-	BTC Cryptos = iota + 1 // Enum Index = 1
-	ETH                    // Enum Index = 2
-	SOL                    // Enum Index = 3
-	ADA                    // Enum Index = 4
-	// ... add Cryptos
-)
-
-var (
-	cryptosMap = map[string]Cryptos{
-		"btc": BTC,
-		"eth": ETH,
-		"sol": SOL,
-		"ada": ADA,
-		// ... add Cryptos
-	}
-)
-
 type Rules int
 
 const (
-	upLimit Rules = iota + 1
-	downLimit
+	highLimit Rules = iota + 1
+	lowLimit
 	// ... add Rules
 )
 
 var (
 	rulesMap = map[string]Rules{
-		"uplimit":   upLimit,
-		"downlimit": downLimit,
+		"highLimit": highLimit,
+		"lowLimit":  lowLimit,
 		// ... add Rules
 	}
 )
@@ -177,7 +156,8 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	text := strings.ToLower(event.Text)
 	// Create a slice with the arguments
 	text_splitted := strings.Split(text, " ")
-	date := time.Now().String()
+	dateAux := strings.Split(time.Now().String(), " ")
+	date := dateAux[0] + " " + dateAux[1]
 	userName := user.Name
 	// Create the attachment and assigned based on the message
 	attachment := slack.Attachment{}
@@ -236,7 +216,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	case "cryptolist":
 		// Gives a list of crypto names
 		attachment.Pretext = "Here goes a list of cryptos you might be interested in"
-		attachment.Text = "BTC\nETH\nSOL\nADA\n..."
+		attachment.Text = "BTC\nETH\nPAXG\nSOL\nADA\nBNB\nDOT\nSOL\nUNI\nAVAX\nAAVE\nAXS\nENS..."
 		attachment.Color = "#0000ff"
 
 	case "sethigh":
@@ -248,11 +228,23 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		} else {
 			crypto := strings.ToUpper(text_splitted[2])
 			highPrice, _ := strconv.ParseFloat(text_splitted[3], 64)
-			err := setHigh(userName, date, crypto, highPrice)
 			if err == nil {
-				attachment.Text = "I'll let you know when that happens"
-				attachment.Pretext = "Good work!"
-				attachment.Color = "#ff8000"
+				if highPrice <= 0 {
+					attachment.Text = "That´s not a valid value! It must be a possitive number"
+					attachment.Pretext = "Try again!"
+					attachment.Color = "#ff8000"
+				} else {
+					err := setBarrierPrice(userName, date, crypto, highPrice, "highLimit")
+					if err == nil {
+						attachment.Text = "I'll let you know when that happens"
+						attachment.Pretext = "Good work!"
+						attachment.Color = "#ff8000"
+					} else {
+						attachment.Text = err.Error()
+						attachment.Pretext = "I'm Sorry"
+						attachment.Color = "#ff0000"
+					}
+				}
 			} else {
 				attachment.Text = err.Error()
 				attachment.Pretext = "I'm Sorry"
@@ -268,12 +260,24 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			attachment.Color = "#ff0000"
 		} else {
 			crypto := strings.ToUpper(text_splitted[2])
-			lowPrice, _ := strconv.ParseFloat(text_splitted[3], 64)
-			err := setLow(userName, date, crypto, lowPrice)
+			lowPrice, err := strconv.ParseFloat(text_splitted[3], 64)
 			if err == nil {
-				attachment.Text = "I'll let you know when that happens"
-				attachment.Pretext = "Good work!"
-				attachment.Color = "#ff8000"
+				if lowPrice <= 0 {
+					attachment.Text = "That´s not a valid value! It must be a possitive number"
+					attachment.Pretext = "Try again!"
+					attachment.Color = "#ff8000"
+				} else {
+					err := setBarrierPrice(userName, date, crypto, lowPrice, "lowLimit")
+					if err == nil {
+						attachment.Text = "I'll let you know when that happens"
+						attachment.Pretext = "Good work!"
+						attachment.Color = "#ff8000"
+					} else {
+						attachment.Text = err.Error()
+						attachment.Pretext = "I'm Sorry"
+						attachment.Color = "#ff0000"
+					}
+				}
 			} else {
 				attachment.Text = err.Error()
 				attachment.Pretext = "I'm Sorry"
@@ -281,7 +285,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			}
 		}
 
-	case "myRules":
+	case "myrules":
 		attachment.Pretext = "To be implemented"
 		attachment.Text = "Mock"
 		attachment.Color = "#0000ff"
@@ -293,7 +297,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 
 	default:
 		// Send a message to the user
-		attachment.Text = fmt.Sprintf("How can I help you %s? Type help after tagging me to know what I can do", user.Name)
+		attachment.Text = fmt.Sprintf("How can I help you %s? Type 'help' after tagging me to know what I can do", user.Name)
 		attachment.Pretext = "That's not a true command!"
 		attachment.Color = "#3d3d3d"
 	}
@@ -309,13 +313,16 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 // Initial message when the bot starts running
 func initMessage(api *slack.Client) error {
 
+	dateAux := strings.Split(time.Now().String(), " ")
+	date := dateAux[0] + " " + dateAux[1]
+
 	err := errors.New("")
 
 	initAttachment := slack.Attachment{}
 	initAttachment.Fields = []slack.AttachmentField{
 		{
 			Title: "Date",
-			Value: time.Now().String(),
+			Value: date,
 		},
 	}
 	initAttachment.Text = fmt.Sprintf("Hi! I'm on! Type help after tagging me to know what I can do!")
@@ -351,24 +358,8 @@ func getCryptoValue(crypto string, currency string) string {
 	return JsonResponse.LastPrice
 }
 
-func getPricesUSD() (map[string]float64, error) {
-	prices := make(map[string]float64)
-	var err error
-	for i := 1; i <= NCRYPTOS; i++ {
-		prices[Cryptos(i).String()], err = strconv.ParseFloat(getCryptoValue(Cryptos(i).String(), "USD"), 64)
-		if err != nil {
-			return nil, fmt.Errorf("Error getting crypto prices")
-		}
-	}
-	return prices, nil
-}
-
 func verifyRules(fileName string, api *slack.Client) error {
 
-	prices, err := getPricesUSD()
-	if err != nil {
-		return err
-	}
 	inFile, err := os.Open(FILE_NAME)
 	if err != nil {
 		return err
@@ -402,7 +393,7 @@ func verifyRules(fileName string, api *slack.Client) error {
 			if err != nil {
 				return err
 			}
-			if checkRule(*reg, prices) == true {
+			if checkRule(*reg) {
 				err := postMessageRule(reg, api)
 				if err != nil {
 					return err
@@ -427,18 +418,18 @@ func verifyRules(fileName string, api *slack.Client) error {
 	return nil
 }
 
-func postMessageRule(reg *register, api *slack.Client) error {
+func postMessageRule(register *register, api *slack.Client) error {
 	initAttachment := slack.Attachment{}
 	initAttachment.Fields = []slack.AttachmentField{
 		{
 			Title: "Date",
-			Value: reg.date,
+			Value: register.date,
 		}, {
 			Title: "Initializer",
-			Value: reg.user,
+			Value: register.user,
 		},
 	}
-	initAttachment.Text = fmt.Sprintf(reg.rule.String()+": "+reg.crypto.String()+" has reached the value %f", reg.price)
+	initAttachment.Text = fmt.Sprintf(register.rule.String()+": "+register.crypto+" has reached the value %f", register.price)
 	initAttachment.Pretext = "As you requested!"
 	initAttachment.Color = "#3aa030"
 
@@ -452,25 +443,22 @@ func postMessageRule(reg *register, api *slack.Client) error {
 }
 
 func loadData(data string) (*register, error) {
-	var e bool
+	var success bool
 	data_splitted := strings.Split(data, "|")
-	crypto, e := parseStringToCrypto(data_splitted[2])
-	if e != true {
-		return nil, fmt.Errorf("Error parsing the data")
-	}
+	crypto := data_splitted[2]
 	price, err := strconv.ParseFloat(data_splitted[3], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing the data")
 	}
-	rule, e := parseStringToRule(strings.TrimSuffix(data_splitted[4], "\n"))
-	if e != true {
+	rule, success := parseStringToRule(strings.TrimSuffix(data_splitted[4], "\n"))
+	if !success {
 		return nil, fmt.Errorf("Error parsing the data")
 	}
 	reg := newRegister(data_splitted[0], data_splitted[1], crypto, price, rule)
 	return reg, nil
 }
 
-func newRegister(user string, date string, crypto Cryptos, price float64, rule Rules) *register {
+func newRegister(user string, date string, crypto string, price float64, rule Rules) *register {
 	var reg register
 	reg.user = user
 	reg.date = date
@@ -481,9 +469,9 @@ func newRegister(user string, date string, crypto Cryptos, price float64, rule R
 
 }
 
-func checkRule(reg register, prices map[string]float64) bool {
+func checkRule(reg register) bool {
 
-	price, _ := prices[reg.crypto.String()]
+	price, _ := strconv.ParseFloat(getCryptoValue(reg.crypto, "USD"), 64)
 	if reg.rule == Rules(1) {
 		if reg.price < price {
 			return true
@@ -502,30 +490,20 @@ func checkRule(reg register, prices map[string]float64) bool {
 	return false
 }
 
-func setLow(name string, date string, crypto string, price float64) error {
-	if isCrypto(crypto) == false {
+func setBarrierPrice(name string, date string, crypto string, price float64, barrierType string) error {
+	if !isCrypto(crypto) {
 		return fmt.Errorf("I dont support that Crypto ID")
 	}
 	if price <= 0 {
-		return fmt.Errorf("The price entered is incorrect")
+		return fmt.Errorf("The price entered is invalid, it must be a positive number.")
 	}
-	str := "Active|" + name + "|" + date + "|" + crypto + "|" + fmt.Sprintf("%f", price) + "|" + "downLimit" + "\n"
-	b := []byte(str)
-	err := saveRule(b)
-	if err != nil {
-		return fmt.Errorf("Please try again")
-	}
-	return nil
-}
 
-func setHigh(name string, date string, crypto string, price float64) error {
-	if isCrypto(crypto) == false {
-		return fmt.Errorf("I dont support that Crypto ID")
+	str := ""
+	if barrierType == "lowLimit" {
+		str = "Active|" + name + "|" + date + "|" + crypto + "|" + fmt.Sprintf("%f", price) + "|" + "lowLimit" + "\n"
+	} else {
+		str = "Active|" + name + "|" + date + "|" + crypto + "|" + fmt.Sprintf("%f", price) + "|" + "highLimit" + "\n"
 	}
-	if price <= 0 {
-		return fmt.Errorf("The price entered is incorrect")
-	}
-	str := "Active|" + name + "|" + date + "|" + crypto + "|" + fmt.Sprintf("%f", price) + "|" + "upLimit" + "\n"
 	b := []byte(str)
 	err := saveRule(b)
 	if err != nil {
@@ -535,20 +513,20 @@ func setHigh(name string, date string, crypto string, price float64) error {
 }
 
 func isCrypto(crypto string) bool {
-	for i := 1; i <= NCRYPTOS; i++ {
-		if crypto == Cryptos(i).String() {
-			return true
-		}
+	price := getCryptoValue(crypto, "USD")
+
+	if price != "" {
+		return true
 	}
 	return false
 }
 
 func (r Rules) String() string {
 	switch r {
-	case upLimit:
-		return "upLimit"
-	case downLimit:
-		return "downLImit"
+	case highLimit:
+		return "highLimit"
+	case lowLimit:
+		return "lowLimit"
 	// ... add Rules
 	default:
 		return "UNKNOWN"
@@ -560,42 +538,17 @@ func parseStringToRule(str string) (Rules, bool) {
 	return r, ok
 }
 
-func (c Cryptos) String() string {
-	switch c {
-	case BTC:
-		return "BTC"
-	case ETH:
-		return "ETH"
-	case SOL:
-		return "SOL"
-	case ADA:
-		return "ADA"
-	// ... add Cryptos
-	default:
-		return "UNKNOWN"
-	}
-}
-
-func (c Cryptos) cryptoIndex() int {
-	return int(c)
-}
-
 func saveRule(b []byte) error {
-	f, err := os.OpenFile(FILE_NAME, os.O_APPEND|os.O_CREATE, 0644)
-	defer f.Close()
+	rulesFile, err := os.OpenFile(FILE_NAME, os.O_APPEND|os.O_CREATE, 0644)
+	defer rulesFile.Close()
 	if err != nil {
 		fmt.Print(err.Error())
 		os.Exit(1)
 	}
-	_, err = f.Write(b)
+	_, err = rulesFile.Write(b)
 	if err != nil {
 		fmt.Print(err.Error())
 		os.Exit(1)
 	}
 	return nil
-}
-
-func parseStringToCrypto(str string) (Cryptos, bool) {
-	c, ok := cryptosMap[strings.ToLower(str)]
-	return c, ok
 }
