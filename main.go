@@ -234,7 +234,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 					attachment.Pretext = "Try again!"
 					attachment.Color = "#ff8000"
 				} else {
-					err := setBarrierPrice(userName, date, crypto, highPrice, "highlimit")
+					err := setBarrierPrice(userName, date, crypto, highPrice, "highLimit")
 					if err == nil {
 						attachment.Text = "I'll let you know when that happens"
 						attachment.Pretext = "Good work!"
@@ -267,7 +267,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 					attachment.Pretext = "Try again!"
 					attachment.Color = "#ff8000"
 				} else {
-					err := setBarrierPrice(userName, date, crypto, lowPrice, "lowlimit")
+					err := setBarrierPrice(userName, date, crypto, lowPrice, "lowLimit")
 					if err == nil {
 						attachment.Text = "I'll let you know when that happens"
 						attachment.Pretext = "Good work!"
