@@ -361,7 +361,7 @@ func verifyRules(fileName string, api *slack.Client) error {
 	currentCryptoPrices := make(map[string]float64)
 	inFile, err := os.Open(FILE_NAME)
 	if err != nil {
-		return err
+		return nil
 	}
 	defer inFile.Close()
 	outFile, err := os.OpenFile(FILE_NAME, os.O_RDWR, 0777)
