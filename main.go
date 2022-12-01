@@ -39,18 +39,16 @@ type Rules int
 const (
 	highLimit Rules = iota + 1
 	lowLimit
-	// ... add Rules
 )
 
 var (
 	rulesMap = map[string]Rules{
 		"highlimit": highLimit,
 		"lowlimit":  lowLimit,
-		// ... add Rules
 	}
 )
 
-type ResponseCG struct {
+type ResponseCEX struct {
 	LastPrice string `json:"lprice"`
 	Currency1 string `json:"curr1"`
 	Currency2 string `json:"curr2"`
@@ -189,16 +187,16 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			attachment.Pretext = "I'm Sorry"
 			attachment.Color = "#ff0000"
 		} else {
-			crypto := strings.ToUpper(text_splitted[2])
-			price := getCryptoValue(crypto, "USD")
-			if price != "" {
-				attachment.Text = fmt.Sprintf("1 "+crypto+" equals to %s USD", price)
-				attachment.Pretext = "As you wanted"
-				attachment.Color = "#ff8000"
-			} else {
-				attachment.Text = fmt.Sprintf("That crypto id doesn't exist")
+			abreviatedCryptoName, found := getAbreviatedCryptoName(text_splitted[2])
+			if !found {
+				attachment.Text = fmt.Sprintf("I don't support that crypto ID or it doesn't exist (yet)")
 				attachment.Pretext = "I'm Sorry"
 				attachment.Color = "#ff0000"
+			} else {
+				price := getCryptoValue(abreviatedCryptoName, "USD")
+				attachment.Text = fmt.Sprintf("1 "+abreviatedCryptoName+" equals to %s USD", price)
+				attachment.Pretext = "As you wanted"
+				attachment.Color = "#ff8000"
 			}
 		}
 
@@ -221,7 +219,14 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		//time.Sleep(time.Second * 50)
 		// Gives a list of crypto names
 		attachment.Pretext = "Here goes a list of cryptos you might be interested in"
-		attachment.Text = "BTC\nETH\nPAXG\nSOL\nADA\nBNB\nDOT\nSOL\nUNI\nAVAX\nAAVE\nAXS\nENS..."
+		attachment.Text = `Feel free to use either the fullname or the abreviation!
+		BTC - bitcoin
+		ETH - ethereum
+		SOL - solana
+		ADA - cardano
+		DOT - polkadot
+		UNI - uniswap
+		AAVE - aave`
 		attachment.Color = "#0000ff"
 
 	case "sethigh":
@@ -417,7 +422,6 @@ func postMessageRule(register *register, api *slack.Client) error {
 }
 
 func getCryptoValue(crypto string, currency string) string {
-	// Validar crypto según mapas y devolver  fmt.Errorf("I don't support that Crypto ID or it doesn't exist (yet)")
 
 	response, err := http.Get("https://cex.io/api/last_price/" + crypto + "/" + currency)
 
@@ -426,7 +430,7 @@ func getCryptoValue(crypto string, currency string) string {
 		os.Exit(1)
 	}
 
-	var JsonResponse ResponseCG
+	var JsonResponse ResponseCEX
 	body, _ := ioutil.ReadAll(response.Body)
 	err = json.Unmarshal(body, &JsonResponse)
 
@@ -443,7 +447,7 @@ func isCrypto(crypto string) bool {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////// RULES   //////////////////////////////////////////////////////
+////////////////////////////////////// RULES //////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func isValueSearched(crypto string, currentCryptoPrices map[string]float64) bool {
@@ -571,15 +575,17 @@ func isPricePastBarrier(reg register, currentCryptoPrices map[string]float64) bo
 }
 
 func setBarrierPrice(name string, date string, crypto string, price float64, barrierType string) error {
-	if !isCrypto(crypto) {
+
+	abreviatedCryptoName, found := getAbreviatedCryptoName(crypto)
+	if !found {
 		return fmt.Errorf("I don't support that Crypto ID or it doesn't exist (yet)")
 	}
 
 	str := ""
 	if barrierType == "lowLimit" {
-		str = "Active|" + name + "|" + date + "|" + crypto + "|" + fmt.Sprintf("%f", price) + "|" + "lowLimit" + "\n"
+		str = "Active|" + name + "|" + date + "|" + abreviatedCryptoName + "|" + fmt.Sprintf("%f", price) + "|" + "lowLimit" + "\n"
 	} else {
-		str = "Active|" + name + "|" + date + "|" + crypto + "|" + fmt.Sprintf("%f", price) + "|" + "highLimit" + "\n"
+		str = "Active|" + name + "|" + date + "|" + abreviatedCryptoName + "|" + fmt.Sprintf("%f", price) + "|" + "highLimit" + "\n"
 	}
 	b := []byte(str)
 	err := saveRule(b)
@@ -595,7 +601,6 @@ func (r Rules) String() string {
 		return "highLimit"
 	case lowLimit:
 		return "lowLimit"
-	// ... add Rules
 	default:
 		return "UNKNOWN"
 	}
@@ -643,8 +648,8 @@ type Chart struct {
 
 func NewChart() *Chart {
 	return &Chart{
-		Width:             500,
-		Height:            300,
+		Width:             800,
+		Height:            600,
 		DevicePixelRation: 1.0,
 		Format:            "png",
 		BackgroundColor:   "#ffffff",
@@ -656,51 +661,56 @@ func NewChart() *Chart {
 	}
 }
 
-func (qc *Chart) validateConfig() bool {
-	return len(qc.Config) != 0
+func (quickchart *Chart) validateConfig() bool {
+	return len(quickchart.Config) != 0
 }
 
-func (qc *Chart) GetUrl() (string, error) {
+func (quickchart *Chart) GetUrl() (string, error) {
 
-	if !qc.validateConfig() {
+	if !quickchart.validateConfig() {
 		return "", fmt.Errorf("invalid config")
 	}
 
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("w=%d", qc.Width))
-	sb.WriteString(fmt.Sprintf("&h=%d", qc.Height))
-	sb.WriteString(fmt.Sprintf("&devicePixelRatio=%f", qc.DevicePixelRation))
-	sb.WriteString(fmt.Sprintf("&f=%s", qc.Format))
-	sb.WriteString(fmt.Sprintf("&bkg=%s", url.QueryEscape(qc.BackgroundColor)))
-	sb.WriteString(fmt.Sprintf("&c=%s", url.QueryEscape(qc.Config)))
+	sb.WriteString(fmt.Sprintf("w=%d", quickchart.Width))
+	sb.WriteString(fmt.Sprintf("&h=%d", quickchart.Height))
+	sb.WriteString(fmt.Sprintf("&devicePixelRatio=%f", quickchart.DevicePixelRation))
+	sb.WriteString(fmt.Sprintf("&f=%s", quickchart.Format))
+	sb.WriteString(fmt.Sprintf("&bkg=%s", url.QueryEscape(quickchart.BackgroundColor)))
+	sb.WriteString(fmt.Sprintf("&c=%s", url.QueryEscape(quickchart.Config)))
 
-	if len(qc.Key) > 0 {
-		sb.WriteString(fmt.Sprintf("&key=%s", url.QueryEscape(qc.Key)))
+	if len(quickchart.Key) > 0 {
+		sb.WriteString(fmt.Sprintf("&key=%s", url.QueryEscape(quickchart.Key)))
 	}
 
-	if len(qc.Version) > 0 {
-		sb.WriteString(fmt.Sprintf("&v=%s", url.QueryEscape(qc.Key)))
+	if len(quickchart.Version) > 0 {
+		sb.WriteString(fmt.Sprintf("&v=%s", url.QueryEscape(quickchart.Key)))
 	}
 
-	return fmt.Sprintf("%s://%s:%d/chart?%s", qc.Scheme, qc.Host, qc.Port, sb.String()), nil
+	return fmt.Sprintf("%s://%s:%d/chart?%s", quickchart.Scheme, quickchart.Host, quickchart.Port, sb.String()), nil
 
 }
 
 func getChartUrl(crypto string, date1 time.Time, date2 time.Time) (string, error) {
-	// Validar crypto según mapas y devolver  fmt.Errorf("I don't support that Crypto ID or it doesn't exist (yet)")
+
+	fullCryptoName, found := getFullCryptoName(crypto)
+	if !found {
+		return "", fmt.Errorf("I don't support that Crypto ID or it doesn't exist (yet)")
+	}
 
 	tp1u := date1.Unix() + 10800
+	fmt.Println(strconv.Itoa(int(tp1u)))
 	tp2u := date2.Unix() + 10800
+	fmt.Println(strconv.Itoa(int(tp2u)))
 	if tp1u >= tp2u {
 		return "", fmt.Errorf("Data range is not valid")
 	}
 
-	response, err := http.Get("https://api.coingecko.com/api/v3/coins/" + crypto + "/market_chart/range?vs_currency=usd&from=" + strconv.Itoa(int(tp1u)) + "&to=" + strconv.Itoa(int(tp2u)))
+	response, err := http.Get("https://api.coingecko.com/api/v3/coins/" + fullCryptoName + "/market_chart/range?vs_currency=usd&from=" + strconv.Itoa(int(tp1u)) + "&to=" + strconv.Itoa(int(tp2u)))
 
 	var JsonResponse Response
 
-	fmt.Println("aca estoy")
 	body, _ := ioutil.ReadAll(response.Body)
 	err = json.Unmarshal(body, &JsonResponse)
 
@@ -708,16 +718,16 @@ func getChartUrl(crypto string, date1 time.Time, date2 time.Time) (string, error
 		return "", fmt.Errorf("Unexpected error, please try again (Um)")
 	}
 
-	pr := JsonResponse.Prices
+	prices := JsonResponse.Prices
 
-	cant := len(pr)
-	fmt.Println("Cantidad de puntos: ", cant)
+	cantidadPrecios := len(prices)
+	fmt.Println("Cantidad de puntos: ", cantidadPrecios)
 
-	dataJson, _ := buildJSONDataFromData(pr, crypto)
-	qc := NewChart()
-	qc.Config = fmt.Sprintf("{type:'line',%s}", dataJson)
+	dataJson, _ := buildJSONDataFromData(prices, fullCryptoName)
+	quickchart := NewChart()
+	quickchart.Config = fmt.Sprintf("{type:'line',%s}", dataJson)
 
-	quickchartURL, err := qc.GetShortUrl()
+	quickchartURL, err := quickchart.GetShortUrl()
 	if err != nil {
 		return "", fmt.Errorf("Unexpected error, please try again (Url)")
 	}
@@ -789,7 +799,7 @@ func buildJSONDataFromData(data [][]float64, crypto string) (string, error) {
 	sampling := int(math.Ceil(float64(long) / maxData))
 
 	for i := 0; i < long; i += sampling {
-		labels = append(labels, time.Unix(int64(data[i][0]/1000), 0).Format("2006-01-02"))
+		labels = append(labels, getDisplaytime(time.Unix(int64(data[i][0]/1000), 0)))
 		datasetValues = append(datasetValues, fmt.Sprintf("%.3f", data[i][1]))
 	}
 
@@ -812,13 +822,22 @@ func buildJSONDataFromData(data [][]float64, crypto string) (string, error) {
 	return sb.String(), nil
 }
 
-func (qc *Chart) makePostRequest(endpoint string) (io.ReadCloser, error) {
-	jsonEncodedPayload, err := json.Marshal(qc)
+// Set to date format: 1 Jan 2000 00:00:00
+func getDisplaytime(unixTime time.Time) string {
+	splitTime := strings.Split(unixTime.Format(time.UnixDate), " ")
+	if len(splitTime) == 7 { //When day is only 1 number, it fills the blank with another space
+		return (splitTime[3] + " " + splitTime[1] + " " + splitTime[6] + " " + splitTime[4])
+	}
+	return (splitTime[2] + " " + splitTime[1] + " " + splitTime[5] + " " + splitTime[3])
+}
+
+func (quickchart *Chart) makePostRequest(endpoint string) (io.ReadCloser, error) {
+	jsonEncodedPayload, err := json.Marshal(quickchart)
 	if err != nil {
 		return nil, err
 	}
 	httpClient := &http.Client{
-		Timeout: qc.Timeout,
+		Timeout: quickchart.Timeout,
 	}
 	resp, err := httpClient.Post(
 		endpoint,
@@ -834,14 +853,14 @@ func (qc *Chart) makePostRequest(endpoint string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-func (qc *Chart) GetShortUrl() (string, error) {
+func (quickchart *Chart) GetShortUrl() (string, error) {
 
-	if !qc.validateConfig() {
+	if !quickchart.validateConfig() {
 		return "", fmt.Errorf("invalid config")
 	}
 
-	quickChartURL := fmt.Sprintf("%s://%s:%d/chart/create", qc.Scheme, qc.Host, qc.Port)
-	bodyStream, err := qc.makePostRequest(quickChartURL)
+	quickChartURL := fmt.Sprintf("%s://%s:%d/chart/create", quickchart.Scheme, quickchart.Host, quickchart.Port)
+	bodyStream, err := quickchart.makePostRequest(quickChartURL)
 	if err != nil {
 		return "", fmt.Errorf("makePostRequest(%s): %w", quickChartURL, err)
 	}
@@ -869,4 +888,56 @@ func (qc *Chart) GetShortUrl() (string, error) {
 type getShortURLResponse struct {
 	Success bool   `json:"-"`
 	URL     string `json:"url"`
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////// Full - abreviated cryptos /////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var (
+	abreviatedToFullMap = map[string]string{
+		"BTC":  "bitcoin",
+		"ETH":  "ethereum",
+		"SOL":  "solana",
+		"ADA":  "cardano",
+		"DOT":  "polkadot",
+		"UNI":  "uniswap",
+		"AAVE": "aave",
+	}
+)
+
+var (
+	fullToAbreviatedMap = map[string]string{
+		"bitcoin":  "BTC",
+		"ethereum": "ETH",
+		"solana":   "SOL",
+		"cardano":  "ADA",
+		"polkadot": "DOT",
+		"uniswap":  "UNI",
+		"aave":     "AAVE",
+	}
+)
+
+func getFullCryptoName(cryptoName string) (string, bool) {
+	cryptoName = strings.ToUpper(cryptoName)
+	fullName, found := abreviatedToFullMap[cryptoName]
+	if found {
+		return fullName, found
+	} else {
+		cryptoName = strings.ToLower(cryptoName)
+		_, found = fullToAbreviatedMap[cryptoName]
+		return cryptoName, found
+	}
+}
+
+func getAbreviatedCryptoName(cryptoName string) (string, bool) {
+	cryptoName = strings.ToLower(cryptoName)
+	fullName, found := fullToAbreviatedMap[cryptoName]
+	if found {
+		return fullName, found
+	} else {
+		cryptoName = strings.ToUpper(cryptoName)
+		_, found = abreviatedToFullMap[cryptoName]
+		return cryptoName, found
+	}
 }
