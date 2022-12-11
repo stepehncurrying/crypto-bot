@@ -4,6 +4,7 @@ import (
 	"crypto-bot/utils"
 	"fmt"
 	"github.com/slack-go/slack"
+	"time"
 )
 
 // HandleHello Greet the user
@@ -17,6 +18,7 @@ func HandleHello(user *slack.User, fields []slack.AttachmentField) slack.Attachm
 
 // HandleSleep Sleep for 10 seconds
 func HandleSleep(fields []slack.AttachmentField) slack.Attachment {
+	time.Sleep(10 * time.Second)
 	pretext := "I slept for 10 seconds"
 	text := fmt.Sprintf("zzz...")
 	color := "#ff33f9"
