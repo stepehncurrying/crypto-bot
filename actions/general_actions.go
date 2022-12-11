@@ -15,6 +15,15 @@ func HandleHello(user *slack.User, fields []slack.AttachmentField) slack.Attachm
 	return utils.GetAttachment(text, pretext, color, fields, "")
 }
 
+// HandleSleep Sleep for 10 seconds
+func HandleSleep(fields []slack.AttachmentField) slack.Attachment {
+	pretext := "I slept for 10 seconds"
+	text := fmt.Sprintf("zzz...")
+	color := "#ff33f9"
+
+	return utils.GetAttachment(text, pretext, color, fields, "")
+}
+
 // HandleHelp Gives a set of options to the user
 func HandleHelp(fields []slack.AttachmentField) slack.Attachment {
 	pretext := "Here is all I can do!"

@@ -178,6 +178,9 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	case actions.Hello:
 		attachment = actions.HandleHello(user, fields)
 
+	case actions.Sleep:
+		attachment = actions.HandleSleep(fields)
+
 	case actions.Price:
 		if len(splitedText) < 3 {
 			text = fmt.Sprintf("You didn't enter any crypto id")
