@@ -4,6 +4,8 @@ import (
 	"crypto-bot/utils"
 	"fmt"
 	"github.com/slack-go/slack"
+	"log"
+	"os"
 	"time"
 )
 
@@ -74,4 +76,28 @@ func HandlePrice(splitedText []string, fields []slack.AttachmentField) slack.Att
 			return utils.GetAttachment(text, "As you wanted", "#ff8000", fields, "")
 		}
 	}
+}
+
+// InitMessage Initial message when the bot starts running
+func InitMessage(api *slack.Client) error {
+
+	date := utils.GetFormattedActualDate()
+
+	text := fmt.Sprintf("Hi! I'm on! Type help after tagging me to know what I can do!")
+	fields := []slack.AttachmentField{
+		{
+			Title: "Date",
+			Value: date,
+		},
+	}
+	attachment := utils.GetAttachment(text, "Howdy!", "#4af030", fields, "")
+
+	_, _, err := api.PostMessage(os.Getenv("SLACK_CHANNEL_ID"), slack.MsgOptionAttachments(attachment))
+
+	if err != nil {
+		log.Println("Error sending message to Slack! ", err)
+		return err
+	}
+
+	return nil
 }
