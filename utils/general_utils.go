@@ -1,15 +1,17 @@
 package utils
 
 import (
+	"fmt"
 	"github.com/slack-go/slack"
 	"strings"
 	"time"
 )
 
 func GetFormattedActualDate() string {
-	timeInfo := strings.Split(time.Now().String(), " ")
-
-	return timeInfo[0] + " " + timeInfo[1]
+	t := time.Now()
+	return fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d",
+		t.Year(), t.Month(), t.Day(),
+		t.Hour(), t.Minute(), t.Second())
 }
 
 func GetAttachment(text string, pretext string, color string, fields []slack.AttachmentField, image string) slack.Attachment {
