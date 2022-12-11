@@ -127,7 +127,7 @@ func getChartUrl(crypto string, date1 time.Time, date2 time.Time) (string, error
 
 	dataJson, _ := utils.BuildJSONDataFromData(prices, fullCryptoName)
 	quickChart := NewChart()
-	quickChart.Config = fmt.Sprintf("{type:'line',fill:false,%s}", dataJson)
+	quickChart.Config = fmt.Sprintf("{type:'line',options:{elements:{point:{radius:0}}},%s}", dataJson)
 
 	quickChartURL, err := quickChart.getShortUrl()
 	if err != nil {
@@ -139,7 +139,7 @@ func getChartUrl(crypto string, date1 time.Time, date2 time.Time) (string, error
 
 func NewChart() *Chart {
 	return &Chart{
-		Width:             800,
+		Width:             1000,
 		Height:            600,
 		DevicePixelRation: 1.0,
 		Format:            "png",

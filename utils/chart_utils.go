@@ -32,7 +32,7 @@ func BuildJSONDataFromData(data [][]float64, crypto string) (string, error) {
 		}
 		sb.WriteString(fmt.Sprintf("'%s'", v))
 	}
-	sb.WriteString(fmt.Sprintf("],datasets:[{label:'%s',data:[", datasetLabel))
+	sb.WriteString(fmt.Sprintf("],datasets:[{fill:false,label:'%s',data:[", datasetLabel))
 	for i, v := range datasetValues {
 		if i != 0 {
 			sb.WriteString(",")
