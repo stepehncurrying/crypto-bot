@@ -126,7 +126,7 @@ func handleEventMessage(event slackevents.EventsAPIEvent, api *slack.Client) err
 	// First we check if this is an CallbackEvent
 	case slackevents.CallbackEvent:
 		innerEvent := event.InnerEvent
-		// Yet Another Type switch on the actual Data to see if its an AppMentionEvent
+		// Yet Another Type switch on the actual Data to see if it's an AppMentionEvent
 		switch ev := innerEvent.Data.(type) {
 		case *slackevents.AppMentionEvent:
 			// The application has been mentioned since this Event is a Mention event
@@ -176,32 +176,32 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 
 	switch action {
 
-	case "hello":
+	case Hello:
 		// Greet the user
 		text = fmt.Sprintf("Hello %s", user.Name)
 		pretext = "Greetings"
 		color = "#4af030"
 
-	case "price":
+	case Price:
 		if len(splitedText) < 3 {
 			text = fmt.Sprintf("You didn't enter any crypto id")
 			pretext = "I'm Sorry"
 			color = "#ff0000"
 		} else {
-			abreviatedCryptoName, found := getAbreviatedCryptoName(splitedText[2])
+			abbreviatedCryptoName, found := getAbbreviatedCryptoName(splitedText[2])
 			if !found {
 				text = fmt.Sprintf("I don't support that crypto ID or it doesn't exist (yet)")
 				pretext = "I'm Sorry"
 				color = "#ff0000"
 			} else {
-				price := getCryptoValue(abreviatedCryptoName, "USD")
-				text = fmt.Sprintf("1 "+abreviatedCryptoName+" equals to %s USD", price)
+				price := getCryptoValue(abbreviatedCryptoName, "USD")
+				text = fmt.Sprintf("1 "+abbreviatedCryptoName+" equals to %s USD", price)
 				pretext = "As you wanted"
 				color = "#ff8000"
 			}
 		}
 
-	case "help":
+	case Help:
 		// Gives a set of options to the user
 		pretext = "Here is all I can do!"
 		text = `Available commands just for you
@@ -216,21 +216,20 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		More to come!`
 		color = "#0000ff"
 
-	case "cryptolist":
-		//time.Sleep(time.Second * 50)
+	case CryptoList:
 		// Gives a list of crypto names
 		pretext = "Here goes a list of cryptos you might be interested in"
 		text = `Feel free to use either the fullname or the abreviation!
-		BTC - bitcoin
-		ETH - ethereum
-		SOL - solana
-		ADA - cardano
-		DOT - polkadot
-		UNI - uniswap
-		AAVE - aave`
+				BTC - bitcoin
+				ETH - ethereum
+				SOL - solana
+				ADA - cardano
+				DOT - polkadot
+				UNI - uniswap
+				AAVE - aave`
 		color = "#0000ff"
 
-	case "sethigh":
+	case SetHigh:
 		// Sets the high to then tell the user when the crypto value is higher
 		if len(splitedText) < 4 {
 			text = fmt.Sprintf("Please try again")
@@ -263,7 +262,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			}
 		}
 
-	case "setlow":
+	case SetLow:
 		// Sets the low to then tell the user when the crypto value is lower
 		if len(splitedText) < 4 {
 			text = fmt.Sprintf("Please try again")
@@ -296,7 +295,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			}
 		}
 
-	case "chart":
+	case GetChart:
 		long := len(splitedText)
 		if long < 4 { // arg = 3
 			text = fmt.Sprintf("Please try again")
@@ -351,7 +350,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			}
 		}
 
-	case "myrules":
+	case MyRules:
 		pretext = "To be implemented"
 		text = "Mock"
 		color = "#0000ff"
@@ -393,30 +392,6 @@ func initMessage(api *slack.Client) error {
 		return err
 	}
 
-	return nil
-}
-
-func postMessageRule(register *register, api *slack.Client) error {
-	initAttachment := slack.Attachment{}
-	initAttachment.Fields = []slack.AttachmentField{
-		{
-			Title: "Date",
-			Value: register.date,
-		}, {
-			Title: "Initializer",
-			Value: register.user,
-		},
-	}
-	initAttachment.Text = fmt.Sprintf(register.rule.String()+": "+register.crypto+" has reached the value %f", register.price)
-	initAttachment.Pretext = "As you requested!"
-	initAttachment.Color = "#3aa030"
-
-	_, _, err := api.PostMessage(os.Getenv("SLACK_CHANNEL_ID"), slack.MsgOptionAttachments(initAttachment))
-
-	if err != nil {
-		log.Println("Error", err)
-		return err
-	}
 	return nil
 }
 
@@ -575,7 +550,7 @@ func isPricePastBarrier(reg register, currentCryptoPrices map[string]float64) bo
 
 func setBarrierPrice(name string, date string, crypto string, price float64, barrierType string) error {
 
-	abreviatedCryptoName, found := getAbreviatedCryptoName(crypto)
+	abreviatedCryptoName, found := getAbbreviatedCryptoName(crypto)
 	if !found {
 		return fmt.Errorf("I don't support that Crypto ID or it doesn't exist (yet)")
 	}
@@ -887,56 +862,4 @@ func (quickchart *Chart) GetShortUrl() (string, error) {
 type getShortURLResponse struct {
 	Success bool   `json:"-"`
 	URL     string `json:"url"`
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////// Full - abreviated cryptos /////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-var (
-	abreviatedToFullMap = map[string]string{
-		"BTC":  "bitcoin",
-		"ETH":  "ethereum",
-		"SOL":  "solana",
-		"ADA":  "cardano",
-		"DOT":  "polkadot",
-		"UNI":  "uniswap",
-		"AAVE": "aave",
-	}
-)
-
-var (
-	fullToAbreviatedMap = map[string]string{
-		"bitcoin":  "BTC",
-		"ethereum": "ETH",
-		"solana":   "SOL",
-		"cardano":  "ADA",
-		"polkadot": "DOT",
-		"uniswap":  "UNI",
-		"aave":     "AAVE",
-	}
-)
-
-func getFullCryptoName(cryptoName string) (string, bool) {
-	cryptoName = strings.ToUpper(cryptoName)
-	fullName, found := abreviatedToFullMap[cryptoName]
-	if found {
-		return fullName, found
-	} else {
-		cryptoName = strings.ToLower(cryptoName)
-		_, found = fullToAbreviatedMap[cryptoName]
-		return cryptoName, found
-	}
-}
-
-func getAbreviatedCryptoName(cryptoName string) (string, bool) {
-	cryptoName = strings.ToLower(cryptoName)
-	fullName, found := fullToAbreviatedMap[cryptoName]
-	if found {
-		return fullName, found
-	} else {
-		cryptoName = strings.ToUpper(cryptoName)
-		_, found = abreviatedToFullMap[cryptoName]
-		return cryptoName, found
-	}
 }

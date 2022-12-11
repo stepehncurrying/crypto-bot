@@ -24,3 +24,27 @@ func getAttachment(text string, pretext string, color string, fields []slack.Att
 
 	return attachment
 }
+
+func getFullCryptoName(cryptoName string) (string, bool) {
+	cryptoName = strings.ToUpper(cryptoName)
+	fullName, found := abbreviatedToFullMap[cryptoName]
+	if found {
+		return fullName, found
+	} else {
+		cryptoName = strings.ToLower(cryptoName)
+		_, found = fullToAbbreviatedMap[cryptoName]
+		return cryptoName, found
+	}
+}
+
+func getAbbreviatedCryptoName(cryptoName string) (string, bool) {
+	cryptoName = strings.ToLower(cryptoName)
+	fullName, found := fullToAbbreviatedMap[cryptoName]
+	if found {
+		return fullName, found
+	} else {
+		cryptoName = strings.ToUpper(cryptoName)
+		_, found = abbreviatedToFullMap[cryptoName]
+		return cryptoName, found
+	}
+}
