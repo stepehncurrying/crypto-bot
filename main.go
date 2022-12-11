@@ -24,7 +24,7 @@ import (
 	"github.com/slack-go/slack/socketmode"
 )
 
-const FILE_NAME = "alarms.txt"
+const FileName = "alarms.txt"
 
 type register struct {
 	user   string
@@ -59,13 +59,12 @@ func main() {
 	err := godotenv.Load(".env")
 
 	if err != nil {
-		fmt.Println("Error: ", err)
+		fmt.Println("Error getting .env file: ", err)
 		return
 	}
 
 	token := os.Getenv("SLACK_AUTH_TOKEN")
 	appToken := os.Getenv("SLACK_APP_TOKEN")
-	//channelId := os.Getenv("SLACK_CHANNEL_ID")
 	api := slack.New(token, slack.OptionDebug(true), slack.OptionAppLevelToken(appToken))
 	client := socketmode.New(api, socketmode.OptionDebug(false))
 
@@ -77,17 +76,17 @@ func main() {
 	defer cancel()
 
 	go func(ctx context.Context, api *slack.Client, socketClient *socketmode.Client) {
-		// Create a for loop that selects either the context cancellation or the events incomming
-
+		// Every 10 seconds, we check the rules
 		go func() {
 			for range time.Tick(time.Second * 10) {
-				err := verifyRules(FILE_NAME, api)
+				err := verifyRules(FileName, api)
 				if err != nil {
 					log.Fatal(err)
 				}
 			}
 		}()
 
+		// Create a for loop that selects either the context cancellation or the events incomming
 		for {
 			select {
 			// inscase context cancel is called exit the goroutine
@@ -148,22 +147,24 @@ func handleEventMessage(event slackevents.EventsAPIEvent, api *slack.Client) err
 }
 
 func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) error {
-	// Grab the user name based on the ID of the one who mentioned the bot
+	// Grab the user's name based on the ID of the one who mentioned the bot
 	user, err := api.GetUserInfo(event.User)
 	if err != nil {
 		return err
 	}
-	// Check if the user said Hello to the bot
-	text := strings.ToLower(event.Text)
+
+	mention := strings.ToLower(event.Text)
 	// Create a slice with the arguments
-	text_splitted := strings.Split(text, " ")
-	dateAux := strings.Split(time.Now().String(), " ")
-	date := dateAux[0] + " " + dateAux[1]
+	splitedText := strings.Split(mention, " ")
+
+	action := splitedText[1]
+	date := getFormattedActualDate()
 	userName := user.Name
-	// Create the attachment and assigned based on the message
-	attachment := slack.Attachment{}
+	image := ""
+	var text, pretext, color string
+
 	// Add Some default context like user who mentioned the bot
-	attachment.Fields = []slack.AttachmentField{
+	fields := []slack.AttachmentField{
 		{
 			Title: "Date",
 			Value: date,
@@ -173,37 +174,37 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		},
 	}
 
-	switch text_splitted[1] {
+	switch action {
 
 	case "hello":
 		// Greet the user
-		attachment.Text = fmt.Sprintf("Hello %s", user.Name)
-		attachment.Pretext = "Greetings"
-		attachment.Color = "#4af030"
+		text = fmt.Sprintf("Hello %s", user.Name)
+		pretext = "Greetings"
+		color = "#4af030"
 
 	case "price":
-		if len(text_splitted) < 3 {
-			attachment.Text = fmt.Sprintf("You didn't enter any crypto id")
-			attachment.Pretext = "I'm Sorry"
-			attachment.Color = "#ff0000"
+		if len(splitedText) < 3 {
+			text = fmt.Sprintf("You didn't enter any crypto id")
+			pretext = "I'm Sorry"
+			color = "#ff0000"
 		} else {
-			abreviatedCryptoName, found := getAbreviatedCryptoName(text_splitted[2])
+			abreviatedCryptoName, found := getAbreviatedCryptoName(splitedText[2])
 			if !found {
-				attachment.Text = fmt.Sprintf("I don't support that crypto ID or it doesn't exist (yet)")
-				attachment.Pretext = "I'm Sorry"
-				attachment.Color = "#ff0000"
+				text = fmt.Sprintf("I don't support that crypto ID or it doesn't exist (yet)")
+				pretext = "I'm Sorry"
+				color = "#ff0000"
 			} else {
 				price := getCryptoValue(abreviatedCryptoName, "USD")
-				attachment.Text = fmt.Sprintf("1 "+abreviatedCryptoName+" equals to %s USD", price)
-				attachment.Pretext = "As you wanted"
-				attachment.Color = "#ff8000"
+				text = fmt.Sprintf("1 "+abreviatedCryptoName+" equals to %s USD", price)
+				pretext = "As you wanted"
+				color = "#ff8000"
 			}
 		}
 
 	case "help":
 		// Gives a set of options to the user
-		attachment.Pretext = "Here is all I can do!"
-		attachment.Text = `Available commands just for you
+		pretext = "Here is all I can do!"
+		text = `Available commands just for you
 		- @CryptoBot hello -> Greet me!
 		- @CryptoBot cryptoList -> Lists cryptos name to show data or set rules
 		- @CryptoBot price any_crypto_name -> Gets the current price of the crypto (if it exists)
@@ -213,13 +214,13 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		- @CryptoBot setLow any_crypto_name low_value-> Set a value so I can tell you when the crypto is lower than it
 		- @CryptoBot myRules -> Show your active rules
 		More to come!`
-		attachment.Color = "#0000ff"
+		color = "#0000ff"
 
 	case "cryptolist":
 		//time.Sleep(time.Second * 50)
 		// Gives a list of crypto names
-		attachment.Pretext = "Here goes a list of cryptos you might be interested in"
-		attachment.Text = `Feel free to use either the fullname or the abreviation!
+		pretext = "Here goes a list of cryptos you might be interested in"
+		text = `Feel free to use either the fullname or the abreviation!
 		BTC - bitcoin
 		ETH - ethereum
 		SOL - solana
@@ -227,85 +228,85 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		DOT - polkadot
 		UNI - uniswap
 		AAVE - aave`
-		attachment.Color = "#0000ff"
+		color = "#0000ff"
 
 	case "sethigh":
 		// Sets the high to then tell the user when the crypto value is higher
-		if len(text_splitted) < 4 {
-			attachment.Text = fmt.Sprintf("Please try again")
-			attachment.Pretext = "Command error"
-			attachment.Color = "#ff0000"
+		if len(splitedText) < 4 {
+			text = fmt.Sprintf("Please try again")
+			pretext = "Command error"
+			color = "#ff0000"
 		} else {
-			crypto := strings.ToUpper(text_splitted[2])
-			highPrice, _ := strconv.ParseFloat(text_splitted[3], 64)
+			crypto := strings.ToUpper(splitedText[2])
+			highPrice, _ := strconv.ParseFloat(splitedText[3], 64)
 			if err == nil {
 				if highPrice <= 0 {
-					attachment.Text = "That´s not a valid value! It must be a possitive number"
-					attachment.Pretext = "Try again!"
-					attachment.Color = "#ff8000"
+					text = "That´s not a valid value! It must be a possitive number"
+					pretext = "Try again!"
+					color = "#ff8000"
 				} else {
 					err := setBarrierPrice(userName, date, crypto, highPrice, "highLimit")
 					if err == nil {
-						attachment.Text = "I'll let you know when that happens"
-						attachment.Pretext = "Good work!"
-						attachment.Color = "#ff8000"
+						text = "I'll let you know when that happens"
+						pretext = "Good work!"
+						color = "#ff8000"
 					} else {
-						attachment.Text = err.Error()
-						attachment.Pretext = "I'm Sorry"
-						attachment.Color = "#ff0000"
+						text = err.Error()
+						pretext = "I'm Sorry"
+						color = "#ff0000"
 					}
 				}
 			} else {
-				attachment.Text = err.Error()
-				attachment.Pretext = "I'm Sorry"
-				attachment.Color = "#ff0000"
+				text = err.Error()
+				pretext = "I'm Sorry"
+				color = "#ff0000"
 			}
 		}
 
 	case "setlow":
 		// Sets the low to then tell the user when the crypto value is lower
-		if len(text_splitted) < 4 {
-			attachment.Text = fmt.Sprintf("Please try again")
-			attachment.Pretext = "Command error"
-			attachment.Color = "#ff0000"
+		if len(splitedText) < 4 {
+			text = fmt.Sprintf("Please try again")
+			pretext = "Command error"
+			color = "#ff0000"
 		} else {
-			crypto := strings.ToUpper(text_splitted[2])
-			lowPrice, err := strconv.ParseFloat(text_splitted[3], 64)
+			crypto := strings.ToUpper(splitedText[2])
+			lowPrice, err := strconv.ParseFloat(splitedText[3], 64)
 			if err == nil {
 				if lowPrice <= 0 {
-					attachment.Text = "That´s not a valid value! It must be a possitive number"
-					attachment.Pretext = "Try again!"
-					attachment.Color = "#ff8000"
+					text = "That´s not a valid value! It must be a possitive number"
+					pretext = "Try again!"
+					color = "#ff8000"
 				} else {
 					err := setBarrierPrice(userName, date, crypto, lowPrice, "lowLimit")
 					if err == nil {
-						attachment.Text = "I'll let you know when that happens"
-						attachment.Pretext = "Good work!"
-						attachment.Color = "#ff8000"
+						text = "I'll let you know when that happens"
+						pretext = "Good work!"
+						color = "#ff8000"
 					} else {
-						attachment.Text = err.Error()
-						attachment.Pretext = "I'm Sorry"
-						attachment.Color = "#ff0000"
+						text = err.Error()
+						pretext = "I'm Sorry"
+						color = "#ff0000"
 					}
 				}
 			} else {
-				attachment.Text = err.Error()
-				attachment.Pretext = "I'm Sorry"
-				attachment.Color = "#ff0000"
+				text = err.Error()
+				pretext = "I'm Sorry"
+				color = "#ff0000"
 			}
 		}
 
 	case "chart":
-		long := len(text_splitted)
+		long := len(splitedText)
 		if long < 4 { // arg = 3
-			attachment.Text = fmt.Sprintf("Please try again")
-			attachment.Pretext = "Command error"
-			attachment.Color = "#ff0000"
+			text = fmt.Sprintf("Please try again")
+			pretext = "Command error"
+			color = "#ff0000"
 		} else {
 			if long < 5 { // arg = 4
-				crypto := text_splitted[2]
+				crypto := splitedText[2]
 				d2 := time.Now()
-				r1 := text_splitted[3]
+				r1 := splitedText[3]
 				var d1 time.Time
 				var chart string
 				var err error
@@ -323,45 +324,46 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 					err = fmt.Errorf("That's not a true command!")
 				}
 				if err == nil {
-					attachment.Pretext = "As you wanted"
-					attachment.Text = "Here is the historical market price for that data range"
-					attachment.Color = "#0000ff"
-					attachment.ImageURL = chart
+					pretext = "As you wanted"
+					text = "Here is the historical market price for that data range"
+					color = "#0000ff"
+					image = chart
 				} else {
-					attachment.Text = err.Error()
-					attachment.Pretext = "I'm Sorry"
-					attachment.Color = "#ff0000"
+					text = err.Error()
+					pretext = "I'm Sorry"
+					color = "#ff0000"
 				}
 			} else { // arg = 5
-				crypto := text_splitted[2]
-				d1, _ := time.Parse(layout, text_splitted[3])
-				d2, _ := time.Parse(layout, text_splitted[4])
+				crypto := splitedText[2]
+				d1, _ := time.Parse(layout, splitedText[3])
+				d2, _ := time.Parse(layout, splitedText[4])
 				chart, err := getChartUrl(crypto, d1, d2)
 				if err == nil {
-					attachment.Pretext = "As you wanted"
-					attachment.Text = "Here is the historical market price for that data range"
-					attachment.Color = "#0000ff"
-					attachment.ImageURL = chart
+					pretext = "As you wanted"
+					text = "Here is the historical market price for that data range"
+					color = "#0000ff"
+					image = chart
 				} else {
-					attachment.Text = err.Error()
-					attachment.Pretext = "I'm Sorry"
-					attachment.Color = "#ff0000"
+					text = err.Error()
+					pretext = "I'm Sorry"
+					color = "#ff0000"
 				}
 			}
 		}
 
 	case "myrules":
-		attachment.Pretext = "To be implemented"
-		attachment.Text = "Mock"
-		attachment.Color = "#0000ff"
+		pretext = "To be implemented"
+		text = "Mock"
+		color = "#0000ff"
 
 	default:
 		// Send a message to the user
-		attachment.Text = fmt.Sprintf("How can I help you %s? Type 'help' after tagging me to know what I can do", user.Name)
-		attachment.Pretext = "That's not a true command!"
-		attachment.Color = "#3d3d3d"
+		text = fmt.Sprintf("How can I help you %s? Type 'help' after tagging me to know what I can do", user.Name)
+		pretext = "That's not a true command!"
+		color = "#3d3d3d"
 	}
 
+	attachment := getAttachment(text, pretext, color, fields, image)
 	_, _, err = api.PostMessage(event.Channel, slack.MsgOptionAttachments(attachment))
 	if err != nil {
 		return fmt.Errorf("failed to post message: %w", err)
@@ -373,24 +375,21 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 // Initial message when the bot starts running
 func initMessage(api *slack.Client) error {
 
-	dateAux := strings.Split(time.Now().String(), " ")
-	date := dateAux[0] + " " + dateAux[1]
+	date := getFormattedActualDate()
 
-	initAttachment := slack.Attachment{}
-	initAttachment.Fields = []slack.AttachmentField{
+	text := fmt.Sprintf("Hi! I'm on! Type help after tagging me to know what I can do!")
+	fields := []slack.AttachmentField{
 		{
 			Title: "Date",
 			Value: date,
 		},
 	}
-	initAttachment.Text = fmt.Sprintf("Hi! I'm on! Type help after tagging me to know what I can do!")
-	initAttachment.Pretext = "Howdy!"
-	initAttachment.Color = "#4af030"
+	attachment := getAttachment(text, "Howdy!", "#4af030", fields, "")
 
-	_, _, err := api.PostMessage(os.Getenv("SLACK_CHANNEL_ID"), slack.MsgOptionAttachments(initAttachment))
+	_, _, err := api.PostMessage(os.Getenv("SLACK_CHANNEL_ID"), slack.MsgOptionAttachments(attachment))
 
 	if err != nil {
-		log.Println("Error", err)
+		log.Println("Error sending message to Slack! ", err)
 		return err
 	}
 
@@ -458,12 +457,12 @@ func isValueSearched(crypto string, currentCryptoPrices map[string]float64) bool
 func verifyRules(fileName string, api *slack.Client) error {
 
 	currentCryptoPrices := make(map[string]float64)
-	inFile, err := os.Open(FILE_NAME)
+	inFile, err := os.Open(FileName)
 	if err != nil {
 		return nil
 	}
 	defer inFile.Close()
-	outFile, err := os.OpenFile(FILE_NAME, os.O_RDWR, 0777)
+	outFile, err := os.OpenFile(FileName, os.O_RDWR, 0777)
 	if err != nil {
 		return err
 	}
@@ -612,7 +611,7 @@ func parseStringToRule(str string) (Rules, bool) {
 }
 
 func saveRule(b []byte) error {
-	rulesFile, err := os.OpenFile(FILE_NAME, os.O_APPEND|os.O_CREATE, 0644)
+	rulesFile, err := os.OpenFile(FileName, os.O_APPEND|os.O_CREATE, 0644)
 	defer rulesFile.Close()
 	if err != nil {
 		fmt.Print(err.Error())
