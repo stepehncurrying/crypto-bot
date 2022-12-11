@@ -164,6 +164,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	userName := user.Name
 	image := ""
 	var text, pretext, color string
+	var attachment slack.Attachment
 
 	// Add Some default context like user who mentioned the bot
 	fields := []slack.AttachmentField{
@@ -179,10 +180,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	switch action {
 
 	case actions.Hello:
-		// Greet the user
-		text = fmt.Sprintf("Hello %s", user.Name)
-		pretext = "Greetings"
-		color = "#4af030"
+		attachment = actions.HandleHello(user, fields)
 
 	case actions.Price:
 		if len(splitedText) < 3 {
@@ -204,32 +202,10 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		}
 
 	case actions.Help:
-		// Gives a set of options to the user
-		pretext = "Here is all I can do!"
-		text = `Available commands just for you
-		- @CryptoBot hello -> Greet me!
-		- @CryptoBot cryptoList -> Lists cryptos name to show data or set rules
-		- @CryptoBot price any_crypto_name -> Gets the current price of the crypto (if it exists)
-		- @CryptoBot chart any_crypto_name DD-MM-AAAA DD-MM-AAAAA -> Gets the historical market price within a range of dates
-		- @CrypyoBot chart any_crypto_name 24h/30d/1y -> Gets the historical market price for last 24 hours, 30 days or 1 year.
-		- @CryptoBot setHigh any_crypto_name high_value -> Set a value so I can tell you when the crypto surpasses it
-		- @CryptoBot setLow any_crypto_name low_value-> Set a value so I can tell you when the crypto is lower than it
-		- @CryptoBot myRules -> Show your active rules
-		More to come!`
-		color = "#0000ff"
+		attachment = actions.HandleHelp(fields)
 
 	case actions.CryptoList:
-		// Gives a list of crypto names
-		pretext = "Here goes a list of cryptos you might be interested in"
-		text = `Feel free to use either the fullname or the abreviation!
-				BTC - bitcoin
-				ETH - ethereum
-				SOL - solana
-				ADA - cardano
-				DOT - polkadot
-				UNI - uniswap
-				AAVE - aave`
-		color = "#0000ff"
+		attachment = actions.HandleCryptoList(fields)
 
 	case actions.SetHigh:
 		// Sets the high to then tell the user when the crypto value is higher
@@ -358,13 +334,12 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		color = "#0000ff"
 
 	default:
-		// Send a message to the user
 		text = fmt.Sprintf("How can I help you %s? Type 'help' after tagging me to know what I can do", user.Name)
 		pretext = "That's not a true command!"
 		color = "#3d3d3d"
+		attachment = utils.GetAttachment(text, pretext, color, fields, "")
 	}
 
-	attachment := utils.GetAttachment(text, pretext, color, fields, image)
 	_, _, err = api.PostMessage(event.Channel, slack.MsgOptionAttachments(attachment))
 	if err != nil {
 		return fmt.Errorf("failed to post message: %w", err)
