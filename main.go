@@ -47,12 +47,6 @@ var (
 	}
 )
 
-type ResponseCEX struct {
-	LastPrice string `json:"lprice"`
-	Currency1 string `json:"curr1"`
-	Currency2 string `json:"curr2"`
-}
-
 func main() {
 	// Load Env variables from .env file
 	err := godotenv.Load(".env")
@@ -182,6 +176,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		attachment = actions.HandleSleep(fields)
 
 	case actions.Price:
+		attachment = actions.HandlePrice(splitedText, fields)
 		if len(splitedText) < 3 {
 			text = fmt.Sprintf("You didn't enter any crypto id")
 			pretext = "I'm Sorry"
@@ -337,11 +332,6 @@ func getCryptoValue(crypto string, currency string) string {
 		os.Exit(1)
 	}
 	return JsonResponse.LastPrice
-}
-
-func isCrypto(crypto string) bool {
-	price := getCryptoValue(crypto, "USD")
-	return price != ""
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////

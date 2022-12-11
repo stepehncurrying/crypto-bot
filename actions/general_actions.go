@@ -2,10 +2,20 @@ package actions
 
 import (
 	"crypto-bot/utils"
+	"encoding/json"
 	"fmt"
 	"github.com/slack-go/slack"
+	"io/ioutil"
+	"net/http"
+	"os"
 	"time"
 )
+
+type ResponseCEX struct {
+	LastPrice string `json:"lprice"`
+	Currency1 string `json:"curr1"`
+	Currency2 string `json:"curr2"`
+}
 
 // HandleHello Greet the user
 func HandleHello(user *slack.User, fields []slack.AttachmentField) slack.Attachment {
@@ -58,4 +68,39 @@ func HandleCryptoList(fields []slack.AttachmentField) slack.Attachment {
 	color := "#0000ff"
 
 	return utils.GetAttachment(text, pretext, color, fields, "")
+}
+
+// HandlePrice Gives crypto price
+func HandlePrice(splitedText []string, fields []slack.AttachmentField) slack.Attachment {
+	if len(splitedText) < 3 {
+		return utils.GetAttachment("You didn't enter any crypto id", "I'm Sorry", "#ff0000", fields, "")
+	} else {
+		abbreviatedCryptoName, found := utils.GetAbbreviatedCryptoName(splitedText[2])
+		if !found {
+			return utils.GetAttachment("I don't support that crypto ID or it doesn't exist (yet)", "I'm Sorry", "#ff0000", fields, "")
+		} else {
+			price := getCryptoValue(abbreviatedCryptoName, "USD")
+			text := fmt.Sprintf("1 "+abbreviatedCryptoName+" equals to %s USD", price)
+			return utils.GetAttachment(text, "As you wanted", "#ff8000", fields, "")
+		}
+	}
+}
+
+func getCryptoValue(crypto string, currency string) string {
+	response, err := http.Get("https://cex.io/api/last_price/" + crypto + "/" + currency)
+
+	if err != nil {
+		fmt.Print(err.Error())
+		os.Exit(1)
+	}
+
+	var JsonResponse ResponseCEX
+	body, _ := ioutil.ReadAll(response.Body)
+	err = json.Unmarshal(body, &JsonResponse)
+
+	if err != nil {
+		fmt.Print(err.Error())
+		os.Exit(1)
+	}
+	return JsonResponse.LastPrice
 }
