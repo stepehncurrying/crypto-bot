@@ -250,11 +250,6 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	case actions.GetChart:
 		attachment = actions.HandleChart(splitedText, fields)
 
-	case actions.MyRules:
-		pretext = "To be implemented"
-		text = "Mock"
-		color = "#0000ff"
-
 	default:
 		text = fmt.Sprintf("How can I help you %s? Type 'help' after tagging me to know what I can do", user.Name)
 		pretext = "That's not a true command!"
