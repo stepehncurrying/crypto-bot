@@ -398,7 +398,7 @@ func isPricePastBarrier(reg register, currentCryptoPrices map[string]float64) bo
 	price := 0.0
 
 	if !isValueSearched(cryptoName, currentCryptoPrices) {
-		price, _ = strconv.ParseFloat(getCryptoValue(cryptoName, "USD"), 64)
+		price, _ = strconv.ParseFloat(utils.GetCryptoValue(cryptoName, "USD"), 64)
 		currentCryptoPrices[cryptoName] = price
 	} else {
 		price = currentCryptoPrices[cryptoName]
