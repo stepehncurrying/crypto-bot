@@ -177,23 +177,6 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 
 	case actions.Price:
 		attachment = actions.HandlePrice(splitedText, fields)
-		if len(splitedText) < 3 {
-			text = fmt.Sprintf("You didn't enter any crypto id")
-			pretext = "I'm Sorry"
-			color = "#ff0000"
-		} else {
-			abbreviatedCryptoName, found := utils.GetAbbreviatedCryptoName(splitedText[2])
-			if !found {
-				text = fmt.Sprintf("I don't support that crypto ID or it doesn't exist (yet)")
-				pretext = "I'm Sorry"
-				color = "#ff0000"
-			} else {
-				price := getCryptoValue(abbreviatedCryptoName, "USD")
-				text = fmt.Sprintf("1 "+abbreviatedCryptoName+" equals to %s USD", price)
-				pretext = "As you wanted"
-				color = "#ff8000"
-			}
-		}
 
 	case actions.Help:
 		attachment = actions.HandleHelp(fields)
