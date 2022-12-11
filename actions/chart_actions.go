@@ -127,7 +127,7 @@ func getChartUrl(crypto string, date1 time.Time, date2 time.Time) (string, error
 
 	dataJson, _ := utils.BuildJSONDataFromData(prices, fullCryptoName)
 	quickChart := NewChart()
-	quickChart.Config = fmt.Sprintf("{type:'line',%s}", dataJson)
+	quickChart.Config = fmt.Sprintf("{type:'line',fill:false,%s}", dataJson)
 
 	quickChartURL, err := quickChart.getShortUrl()
 	if err != nil {
