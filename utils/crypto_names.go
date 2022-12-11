@@ -1,4 +1,4 @@
-package main
+package utils
 
 var (
 	abbreviatedToFullMap = map[string]string{

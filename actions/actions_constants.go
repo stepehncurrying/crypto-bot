@@ -1,4 +1,4 @@
-package main
+package actions
 
 const Hello = "hello"
 const Price = "price"

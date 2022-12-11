@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto-bot/utils"
 	"fmt"
 	"github.com/slack-go/slack"
 	"log"
@@ -22,7 +23,7 @@ func postMessageRule(register *register, api *slack.Client) error {
 	pretext := "As you requested!"
 	color := "#3aa030"
 
-	attachment := getAttachment(text, pretext, color, fields, "")
+	attachment := utils.GetAttachment(text, pretext, color, fields, "")
 
 	_, _, err := api.PostMessage(os.Getenv("SLACK_CHANNEL_ID"), slack.MsgOptionAttachments(attachment))
 

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto-bot/actions"
+	"crypto-bot/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -158,7 +160,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	splitedText := strings.Split(mention, " ")
 
 	action := splitedText[1]
-	date := getFormattedActualDate()
+	date := utils.GetFormattedActualDate()
 	userName := user.Name
 	image := ""
 	var text, pretext, color string
@@ -176,19 +178,19 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 
 	switch action {
 
-	case Hello:
+	case actions.Hello:
 		// Greet the user
 		text = fmt.Sprintf("Hello %s", user.Name)
 		pretext = "Greetings"
 		color = "#4af030"
 
-	case Price:
+	case actions.Price:
 		if len(splitedText) < 3 {
 			text = fmt.Sprintf("You didn't enter any crypto id")
 			pretext = "I'm Sorry"
 			color = "#ff0000"
 		} else {
-			abbreviatedCryptoName, found := getAbbreviatedCryptoName(splitedText[2])
+			abbreviatedCryptoName, found := utils.GetAbbreviatedCryptoName(splitedText[2])
 			if !found {
 				text = fmt.Sprintf("I don't support that crypto ID or it doesn't exist (yet)")
 				pretext = "I'm Sorry"
@@ -201,7 +203,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			}
 		}
 
-	case Help:
+	case actions.Help:
 		// Gives a set of options to the user
 		pretext = "Here is all I can do!"
 		text = `Available commands just for you
@@ -216,7 +218,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		More to come!`
 		color = "#0000ff"
 
-	case CryptoList:
+	case actions.CryptoList:
 		// Gives a list of crypto names
 		pretext = "Here goes a list of cryptos you might be interested in"
 		text = `Feel free to use either the fullname or the abreviation!
@@ -229,7 +231,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 				AAVE - aave`
 		color = "#0000ff"
 
-	case SetHigh:
+	case actions.SetHigh:
 		// Sets the high to then tell the user when the crypto value is higher
 		if len(splitedText) < 4 {
 			text = fmt.Sprintf("Please try again")
@@ -262,7 +264,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			}
 		}
 
-	case SetLow:
+	case actions.SetLow:
 		// Sets the low to then tell the user when the crypto value is lower
 		if len(splitedText) < 4 {
 			text = fmt.Sprintf("Please try again")
@@ -295,7 +297,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			}
 		}
 
-	case GetChart:
+	case actions.GetChart:
 		long := len(splitedText)
 		if long < 4 { // arg = 3
 			text = fmt.Sprintf("Please try again")
@@ -350,7 +352,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 			}
 		}
 
-	case MyRules:
+	case actions.MyRules:
 		pretext = "To be implemented"
 		text = "Mock"
 		color = "#0000ff"
@@ -362,7 +364,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 		color = "#3d3d3d"
 	}
 
-	attachment := getAttachment(text, pretext, color, fields, image)
+	attachment := utils.GetAttachment(text, pretext, color, fields, image)
 	_, _, err = api.PostMessage(event.Channel, slack.MsgOptionAttachments(attachment))
 	if err != nil {
 		return fmt.Errorf("failed to post message: %w", err)
@@ -374,7 +376,7 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 // Initial message when the bot starts running
 func initMessage(api *slack.Client) error {
 
-	date := getFormattedActualDate()
+	date := utils.GetFormattedActualDate()
 
 	text := fmt.Sprintf("Hi! I'm on! Type help after tagging me to know what I can do!")
 	fields := []slack.AttachmentField{
@@ -383,7 +385,7 @@ func initMessage(api *slack.Client) error {
 			Value: date,
 		},
 	}
-	attachment := getAttachment(text, "Howdy!", "#4af030", fields, "")
+	attachment := utils.GetAttachment(text, "Howdy!", "#4af030", fields, "")
 
 	_, _, err := api.PostMessage(os.Getenv("SLACK_CHANNEL_ID"), slack.MsgOptionAttachments(attachment))
 
@@ -550,7 +552,7 @@ func isPricePastBarrier(reg register, currentCryptoPrices map[string]float64) bo
 
 func setBarrierPrice(name string, date string, crypto string, price float64, barrierType string) error {
 
-	abreviatedCryptoName, found := getAbbreviatedCryptoName(crypto)
+	abreviatedCryptoName, found := utils.GetAbbreviatedCryptoName(crypto)
 	if !found {
 		return fmt.Errorf("I don't support that Crypto ID or it doesn't exist (yet)")
 	}
@@ -668,7 +670,7 @@ func (quickchart *Chart) GetUrl() (string, error) {
 
 func getChartUrl(crypto string, date1 time.Time, date2 time.Time) (string, error) {
 
-	fullCryptoName, found := getFullCryptoName(crypto)
+	fullCryptoName, found := utils.GetFullCryptoName(crypto)
 	if !found {
 		return "", fmt.Errorf("I don't support that Crypto ID or it doesn't exist (yet)")
 	}

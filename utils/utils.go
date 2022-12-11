@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"github.com/slack-go/slack"
@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-func getFormattedActualDate() string {
+func GetFormattedActualDate() string {
 	timeInfo := strings.Split(time.Now().String(), " ")
 
 	return timeInfo[0] + " " + timeInfo[1]
 }
 
-func getAttachment(text string, pretext string, color string, fields []slack.AttachmentField, image string) slack.Attachment {
+func GetAttachment(text string, pretext string, color string, fields []slack.AttachmentField, image string) slack.Attachment {
 	attachment := slack.Attachment{}
 	attachment.Fields = fields
 	attachment.Text = text
@@ -25,7 +25,7 @@ func getAttachment(text string, pretext string, color string, fields []slack.Att
 	return attachment
 }
 
-func getFullCryptoName(cryptoName string) (string, bool) {
+func GetFullCryptoName(cryptoName string) (string, bool) {
 	cryptoName = strings.ToUpper(cryptoName)
 	fullName, found := abbreviatedToFullMap[cryptoName]
 	if found {
@@ -37,7 +37,7 @@ func getFullCryptoName(cryptoName string) (string, bool) {
 	}
 }
 
-func getAbbreviatedCryptoName(cryptoName string) (string, bool) {
+func GetAbbreviatedCryptoName(cryptoName string) (string, bool) {
 	cryptoName = strings.ToLower(cryptoName)
 	fullName, found := fullToAbbreviatedMap[cryptoName]
 	if found {
