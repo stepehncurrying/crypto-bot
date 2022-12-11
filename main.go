@@ -5,13 +5,10 @@ import (
 	"context"
 	"crypto-bot/actions"
 	"crypto-bot/utils"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -295,26 +292,6 @@ func initMessage(api *slack.Client) error {
 	}
 
 	return nil
-}
-
-func getCryptoValue(crypto string, currency string) string {
-
-	response, err := http.Get("https://cex.io/api/last_price/" + crypto + "/" + currency)
-
-	if err != nil {
-		fmt.Print(err.Error())
-		os.Exit(1)
-	}
-
-	var JsonResponse ResponseCEX
-	body, _ := ioutil.ReadAll(response.Body)
-	err = json.Unmarshal(body, &JsonResponse)
-
-	if err != nil {
-		fmt.Print(err.Error())
-		os.Exit(1)
-	}
-	return JsonResponse.LastPrice
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
