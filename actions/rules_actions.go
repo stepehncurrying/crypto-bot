@@ -97,6 +97,7 @@ func VerifyRules(fileName string, api *slack.Client) error {
 			outFile.WriteString(data)
 
 		case "Closed|":
+			fmt.Print("\nImprimo: ", status, "\n")
 			data, err := reader.ReadString('\n')
 			if err != nil {
 				if err != io.EOF {
@@ -131,7 +132,7 @@ func setBarrierPrice(name string, date string, crypto string, price float64, bar
 }
 
 func saveRule(b []byte) error {
-	rulesFile, err := os.OpenFile(os.Getenv("ALARM_FILENAME"), os.O_APPEND|os.O_CREATE, 0644)
+	rulesFile, err := os.OpenFile("alarms.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	defer rulesFile.Close()
 	if err != nil {
 		fmt.Print(err.Error())
