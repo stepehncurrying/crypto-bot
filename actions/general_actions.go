@@ -6,7 +6,6 @@ import (
 	"github.com/slack-go/slack"
 	"log"
 	"os"
-	"time"
 )
 
 // HandleHello Greet the user
