@@ -18,16 +18,6 @@ func HandleHello(user *slack.User, fields []slack.AttachmentField) slack.Attachm
 	return utils.GetAttachment(text, pretext, color, fields, "")
 }
 
-// HandleSleep Sleep for 10 seconds
-func HandleSleep(fields []slack.AttachmentField) slack.Attachment {
-	time.Sleep(10 * time.Second)
-	pretext := "I slept for 10 seconds"
-	text := fmt.Sprintf("zzz...")
-	color := "#ff33f9"
-
-	return utils.GetAttachment(text, pretext, color, fields, "")
-}
-
 // HandleHelp Gives a set of options to the user
 func HandleHelp(fields []slack.AttachmentField) slack.Attachment {
 	pretext := "Here is all I can do!"
@@ -39,7 +29,6 @@ func HandleHelp(fields []slack.AttachmentField) slack.Attachment {
 		- @CrypyoBot chart any_crypto_name 24h/30d/1y -> Gets the historical market price for last 24 hours, 30 days or 1 year.
 		- @CryptoBot setHigh any_crypto_name high_value -> Set a value so I can tell you when the crypto surpasses it
 		- @CryptoBot setLow any_crypto_name low_value-> Set a value so I can tell you when the crypto is lower than it
-		- @CryptoBot myRules -> Show your active rules
 		More to come!`
 	color := "#0000ff"
 
