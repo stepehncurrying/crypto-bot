@@ -142,9 +142,6 @@ func handleEventMention(event *slackevents.AppMentionEvent, api *slack.Client) e
 	case actions.Hello:
 		attachment = actions.HandleHello(user, fields)
 
-	case actions.Sleep:
-		attachment = actions.HandleSleep(fields)
-
 	case actions.Price:
 		attachment = actions.HandlePrice(splitedText, fields)
 
